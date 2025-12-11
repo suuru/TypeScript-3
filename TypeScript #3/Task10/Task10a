@@ -1,0 +1,362 @@
+// ============================================================================
+// USER INTERFACE
+// ============================================================================
+
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  age?: number;
+  isActive: boolean;
+}
+
+
+// ============================================================================
+// SIMULATING API RESPONSES WITH VARIOUS DATA QUALITIES
+// ============================================================================
+
+// Scenario 1: Valid API response
+function fetchValidUserAPI(): unknown {
+  return {
+    id: 1,
+    name: 'Alice Johnson',
+    email: 'alice@example.com',
+    age: 28,
+    isActive: true
+  };
+}
+
+// Scenario 2: Invalid data types from API
+function fetchInvalidTypesAPI(): unknown {
+  return {
+    id: '1', // ❌ Should be number
+    name: 123, // ❌ Should be string
+    email: 'bob@example.com',
+    age: '25', // ❌ Should be number
+    isActive: 'yes' // ❌ Should be boolean
+  };
+}
+
+// Scenario 3: Missing required fields
+function fetchIncompleteAPI(): unknown {
+  return {
+    id: 2,
+    name: 'Charlie'
+    // ❌ Missing email and isActive
+  };
+}
+
+// Scenario 4: Extra/malicious fields
+function fetchMaliciousAPI(): unknown {
+  return {
+    id: 3,
+    name: 'Mallory',
+    email: 'mallory@example.com',
+    isActive: true,
+    __proto__: { admin: true }, // Prototype pollution
+    executeScript: () => { console.log('XSS attempt!'); }
+  };
+}
+
+// Scenario 5: Completely wrong data
+function fetchWrongDataAPI(): unknown {
+  return "This is just a string, not a user object!";
+}
+
+// Scenario 6: Null/undefined
+function fetchNullAPI(): unknown {
+  return null;
+}
+
+
+// ============================================================================
+// TYPE GUARD HELPER FUNCTIONS
+// ============================================================================
+
+export{}
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isNumber(value: unknown): value is number {
+  return typeof value === 'number' && !isNaN(value) && isFinite(value);
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === 'string';
+}
+
+function isBoolean(value: unknown): value is boolean {
+  return typeof value === 'boolean';
+}
+
+function hasProperty<K extends string>(
+  obj: unknown,
+  key: K
+): obj is Record<K, unknown> {
+  return isObject(obj) && key in obj;
+}
+
+
+// ============================================================================
+// COMPREHENSIVE USER TYPE GUARD
+// ============================================================================
+
+function isValidUser(data: unknown): data is User {
+  // Check 1: Must be an object
+  if (!isObject(data)) {
+    console.log('  ❌ Validation failed: Not an object');
+    return false;
+  }
+
+  // Check 2: Must have 'id' property that's a number
+  if (!hasProperty(data, 'id') || !isNumber(data.id)) {
+    console.log('  ❌ Validation failed: id is missing or not a number');
+    return false;
+  }
+
+  // Check 3: Must have 'name' property that's a string
+  if (!hasProperty(data, 'name') || !isString(data.name)) {
+    console.log('  ❌ Validation failed: name is missing or not a string');
+    return false;
+  }
+
+  // Check 4: Must have 'email' property that's a string
+  if (!hasProperty(data, 'email') || !isString(data.email)) {
+    console.log('  ❌ Validation failed: email is missing or not a string');
+    return false;
+  }
+
+  // Check 5: Must have 'isActive' property that's a boolean
+  if (!hasProperty(data, 'isActive') || !isBoolean(data.isActive)) {
+    console.log('  ❌ Validation failed: isActive is missing or not a boolean');
+    return false;
+  }
+
+  // Check 6: If 'age' exists, it must be a number
+  if (hasProperty(data, 'age') && data.age !== undefined) {
+    if (!isNumber(data.age)) {
+      console.log('  ❌ Validation failed: age must be a number');
+      return false;
+    }
+  }
+
+  console.log('  ✅ Validation passed: Data is a valid User');
+  return true;
+}
+
+
+// ============================================================================
+// SAFE PARSER FUNCTION
+// ============================================================================
+
+function parseUser(data: unknown): User | null {
+  if (!isValidUser(data)) {
+    return null;
+  }
+
+  // TypeScript now knows data is User, so this is safe
+  return {
+    id: data.id,
+    name: data.name,
+    email: data.email,
+    isActive: data.isActive,
+    age: data.age
+  };
+}
+
+
+// ============================================================================
+// SAFE APPROACH: Using unknown with Type Guards
+// ============================================================================
+
+console.log('╔════════════════════════════════════════════════════════════╗');
+console.log('║       SAFE APPROACH: Using unknown with Type Guards       ║');
+console.log('╚════════════════════════════════════════════════════════════╝\n');
+
+// Test 1: Valid data
+console.log('Test 1: Valid API data');
+const safeData1: unknown = fetchValidUserAPI();
+const user1 = parseUser(safeData1);
+
+if (user1 !== null) {
+  console.log(`✅ Success! User: ${user1.name}, Email: ${user1.email}, Active: ${user1.isActive}`);
+  // Safe to access all properties
+  const greeting = `Hello ${user1.name.toUpperCase()}!`;
+  console.log(`  ${greeting}\n`);
+} else {
+  console.log('❌ Failed to parse user\n');
+}
+
+// Test 2: Invalid types
+console.log('Test 2: Invalid data types');
+const safeData2: unknown = fetchInvalidTypesAPI();
+const user2 = parseUser(safeData2);
+
+if (user2 !== null) {
+  console.log(`✅ Success! User: ${user2.name}\n`);
+} else {
+  console.log('❌ Failed to parse user (as expected - data was invalid)\n');
+}
+
+// Test 3: Incomplete data
+console.log('Test 3: Incomplete data (missing fields)');
+const safeData3: unknown = fetchIncompleteAPI();
+const user3 = parseUser(safeData3);
+
+if (user3 !== null) {
+  console.log(`✅ Success! User: ${user3.name}\n`);
+} else {
+  console.log('❌ Failed to parse user (as expected - missing required fields)\n');
+}
+
+// Test 4: Wrong data type
+console.log('Test 4: Completely wrong data type');
+const safeData4: unknown = fetchWrongDataAPI();
+const user4 = parseUser(safeData4);
+
+if (user4 !== null) {
+  console.log(`✅ Success! User: ${user4.name}\n`);
+} else {
+  console.log('❌ Failed to parse user (as expected - not an object)\n');
+}
+
+// Test 5: Cannot access properties without narrowing
+console.log('Test 5: Attempting to access unknown without narrowing');
+const safeData5: unknown = fetchValidUserAPI();
+// console.log(safeData5.name); // ❌ Compile error: Object is of type 'unknown'
+// console.log(safeData5.email); // ❌ Compile error: Object is of type 'unknown'
+console.log('✅ TypeScript prevents direct property access on unknown\n');
+
+
+// ============================================================================
+// UNSAFE APPROACH: Using any (Shows Hidden Errors)
+// ============================================================================
+
+console.log('\n╔════════════════════════════════════════════════════════════╗');
+console.log('║     UNSAFE APPROACH: Using any (Hides Errors!)            ║');
+console.log('╚════════════════════════════════════════════════════════════╝\n');
+
+// Test 1: any with invalid types - compiles but produces wrong results
+console.log('Test 1: Invalid types with any (compiles but wrong!)');
+const unsafeData1: any = fetchInvalidTypesAPI();
+
+console.log(`Name: ${unsafeData1.name} (type: ${typeof unsafeData1.name})`); // 123, not a string!
+console.log(`ID: ${unsafeData1.id} (type: ${typeof unsafeData1.id})`); // '1', not a number!
+
+// This compiles but produces unexpected results
+const doubledId = unsafeData1.id * 2;
+console.log(`Doubled ID: ${doubledId}`); // NaN! Because id is a string
+console.log('❌ No compile error, but runtime behavior is wrong!\n');
+
+// Test 2: any allows accessing non-existent properties
+console.log('Test 2: Accessing non-existent properties with any');
+const unsafeData2: any = fetchValidUserAPI();
+console.log(`Address: ${unsafeData2.address}`); // undefined, no error!
+console.log(`Phone: ${unsafeData2.phone?.number}`); // undefined, no error!
+console.log('❌ TypeScript allows accessing properties that don\'t exist!\n');
+
+// Test 3: any bypasses type checking completely
+console.log('Test 3: Assigning wrong types with any');
+const unsafeData3: any = "just a random string";
+const fakeUser: User = unsafeData3; // ❌ This compiles!
+console.log(`Fake user: ${fakeUser}`);
+console.log('❌ TypeScript allows assigning string to User interface!\n');
+
+// Test 4: Runtime errors with any
+console.log('Test 4: Runtime errors with any');
+const unsafeData4: any = fetchIncompleteAPI();
+console.log(`Name: ${unsafeData4.name}`); // Works
+console.log(`Email: ${unsafeData4.email}`); // undefined!
+console.log(`Email uppercase: ${unsafeData4.email?.toUpperCase()}`); // Safe with optional chaining
+
+try {
+  // This compiles but crashes at runtime!
+  const emailUpper = unsafeData4.email.toUpperCase();
+  console.log(`Email: ${emailUpper}`);
+} catch (error) {
+  console.log('❌ Runtime error! Cannot read toUpperCase of undefined\n');
+}
+
+// Test 5: any with completely wrong data
+console.log('Test 5: Using any with completely wrong data');
+const unsafeData5: any = fetchWrongDataAPI();
+console.log(`Name: ${unsafeData5.name}`); // undefined
+console.log(`Type: ${typeof unsafeData5}`); // string
+
+try {
+  const userId = unsafeData5.id.toString();
+  console.log(`User ID: ${userId}`);
+} catch (error) {
+  console.log('❌ Runtime error! Cannot read property of undefined\n');
+}
+
+
+// ============================================================================
+// SIDE-BY-SIDE COMPARISON
+// ============================================================================
+
+console.log('\n╔════════════════════════════════════════════════════════════╗');
+console.log('║              SIDE-BY-SIDE COMPARISON                       ║');
+console.log('╚════════════════════════════════════════════════════════════╝\n');
+
+function processWithUnknown(data: unknown): string {
+  const user = parseUser(data);
+  
+  if (user === null) {
+    return 'Error: Invalid user data';
+  }
+  
+  // TypeScript guarantees user is valid here
+  return `${user.name} (${user.email}) - Active: ${user.isActive}`;
+}
+
+function processWithAny(data: any): string {
+  // No validation! Direct property access
+  return `${data.name} (${data.email}) - Active: ${data.isActive}`;
+}
+
+console.log('Processing valid data:');
+const validData: unknown = fetchValidUserAPI();
+console.log('  unknown:', processWithUnknown(validData));
+console.log('  any:', processWithAny(validData));
+
+console.log('\nProcessing invalid data:');
+const invalidData: unknown = fetchInvalidTypesAPI();
+console.log('  unknown:', processWithUnknown(invalidData));
+console.log('  any:', processWithAny(invalidData)); // Wrong but no error!
+
+console.log('\nProcessing incomplete data:');
+const incompleteData: unknown = fetchIncompleteAPI();
+console.log('  unknown:', processWithUnknown(incompleteData));
+console.log('  any:', processWithAny(incompleteData)); // Shows undefined!
+
+
+// ============================================================================
+// SUMMARY
+// ============================================================================
+
+console.log('\n\n╔════════════════════════════════════════════════════════════╗');
+console.log('║                        SUMMARY                             ║');
+console.log('╚════════════════════════════════════════════════════════════╝\n');
+
+console.log('✅ UNKNOWN (Type-Safe):');
+console.log('   • Forces you to validate data before use');
+console.log('   • Requires type guards for property access');
+console.log('   • Catches type errors at COMPILE TIME');
+console.log('   • Prevents runtime crashes from invalid data');
+console.log('   • TypeScript error if you forget to narrow');
+console.log('');
+console.log('❌ ANY (Unsafe):');
+console.log('   • Bypasses ALL type checking');
+console.log('   • Allows accessing any property (even non-existent)');
+console.log('   • Errors only appear at RUNTIME');
+console.log('   • Can cause silent bugs and crashes');
+console.log('   • TypeScript assumes you know what you\'re doing');
+console.log('');
+console.log('💡 BEST PRACTICE:');
+console.log('   • Always use "unknown" for external data (APIs, user input)');
+console.log('   • Create comprehensive type guards');
+console.log('   • Never use "any" unless absolutely necessary');
+console.log('   • Validate data structure before trusting it');
+console.log('');
