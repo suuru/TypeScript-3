@@ -1,0 +1,10 @@
+// ===========================================================
+// tsconfig.json (minimal Node.js config)
+// ===========================================================
+{
+  "compilerOptions": {
+    "strict": true,          // Enable strict mode
+    "target": "ES2020",      // Modern JS output
+    "module": "commonjs",    // Node.js standard (OR "node16")
+    "outDir": "dist",        // Output folder
+    "rootDir": 
